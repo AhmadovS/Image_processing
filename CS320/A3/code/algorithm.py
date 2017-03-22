@@ -88,8 +88,8 @@ def propagation_and_random_search(source_patches, target_patches,
 
     for x in range(shp[0]):
         for y in range(shp[1]):
-            trgt_patch = target_patches[x, y, :, :]
-            trgt_patch[np.isnan(trgt_patch)] = 0
+            src_patch = source_patches[x, y, :, :]
+            src_patch[np.isnan(src_patch)] = 0
 
             ##Propation
             if not propagation_enabled:
@@ -99,11 +99,11 @@ def propagation_and_random_search(source_patches, target_patches,
                 ##Even iterations
                 else:
                     idxs = [new_f[x,y,:], ]
-                    if x+1<shp[0]:
+                    if x+1<shp[0] and x+ new_f[x+1,y,:][0] < shp[0]:
                         idxs.append(new_f[x+1,y,:])
                     else:
                         idxs.append(np.NaN)
-                    if y + 1<shp[1]:
+                    if y + 1<shp[1] and y+ new_f[x,y+1,:][1] < shp[1]:
                         idxs.append(new_f[x,y + 1,:])
                     else:
                         idxs.append(np.NaN)
@@ -112,11 +112,11 @@ def propagation_and_random_search(source_patches, target_patches,
 
                 ##Troubleshooting and find min
                 for id in idxs:
-                    if np.any(np.isnan(id)) or x + id[0] >= shp[0] or y + id[1] >= shp[1]:
+                    if np.any(np.isnan(id)) or abs(x + id[0]) >= shp[0] or abs(y + id[1]) >= shp[1]:
                         res.append(np.float('inf'))
                     else:
-                        src_patch = source_patches[x+id[0],y+id[1],:,:]
-                        src_patch[np.isnan(src_patch)] = 0
+                        trgt_patch = target_patches[x+id[0],y+id[1],:,:]
+                        trgt_patch[np.isnan(trgt_patch)] = 0
                         res.append(np.sqrt(np.mean(np.sum((trgt_patch-src_patch)**2))))
 
                 tmp_D = np.min(res)
@@ -149,10 +149,10 @@ def propagation_and_random_search(source_patches, target_patches,
                     #     uy = y + int(u[1])
 
                     if abs(ux) < shp[0] and abs(uy) < shp[1]:
-                        src_patch = source_patches[ux, uy, :, :]
-                        src_patch[np.isnan(src_patch)] = 0
+                        trgt_patch = target_patches[ux, uy, :, :]
+                        trgt_patch[np.isnan(trgt_patch)] = 0
 
-                        tmp_D = np.sqrt(np.mean(np.sum((trgt_patch.T-src_patch.T)**2)))
+                        tmp_D = np.sqrt(np.mean(np.sum((trgt_patch-src_patch)**2)))
                         if np.isnan(best_D[x,y]) or tmp_D < best_D[x,y]:
 
                             best_D[x, y,:] = tmp_D
