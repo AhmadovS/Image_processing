@@ -74,9 +74,8 @@ def propagation_and_random_search(source_patches, target_patches,
                                   propagation_enabled, random_enabled,
                                   odd_iteration, best_D=None,
                                   global_vars=None
-                                ):
+                                  ):
     new_f = f.copy()
-
 
     #############################################
     ###  PLACE YOUR CODE BETWEEN THESE LINES  ###
@@ -118,7 +117,7 @@ def propagation_and_random_search(source_patches, target_patches,
                     else:
                         trgt_patch = target_patches[x + id[0], y + id[1], :, :]
                         trgt_patch[np.isnan(trgt_patch)] = 0
-                        res.append(np.sqrt(np.sum((trgt_patch - src_patch) ** 2)/n_nan))
+                        res.append(np.sqrt(np.sum((trgt_patch - src_patch) ** 2) / n_nan))
 
                 tmp_D = np.min(res)
                 if np.isnan(best_D[x, y]) or tmp_D < best_D[x, y]:
@@ -130,14 +129,14 @@ def propagation_and_random_search(source_patches, target_patches,
 
                 i = 0
                 offset = w
-                max_iters = np.int(-np.log(w)/np.log(alpha))
+                max_iters = np.int(-np.log(w) / np.log(alpha))
 
-                old_v = np.tile(f[x, y, :], (9,1)).T
+                old_v = np.tile(f[x, y, :], (9, 1)).T
 
-                r = np.random.choice([-1, 1], size=(2,max_iters))
+                r = np.random.choice([-1, 1], size=(2, max_iters))
 
-                off_func = lambda i: np.int(w*(alpha**i))
-                offsets = r*map(off_func, range(max_iters))
+                off_func = lambda i: np.int(w * (alpha ** i))
+                offsets = r * map(off_func, range(max_iters))
 
                 offsets += old_v
 
@@ -162,10 +161,10 @@ def propagation_and_random_search(source_patches, target_patches,
                         trgt_patch = target_patches[ux, uy, :, :]
                         trgt_patch[np.isnan(trgt_patch)] = 0
 
-                        tmp_D = np.sqrt(np.sum((trgt_patch - src_patch) ** 2)/n_nan)
+                        tmp_D = np.sqrt(np.sum((trgt_patch - src_patch) ** 2) / n_nan)
                         if np.isnan(best_D[x, y]) or tmp_D < best_D[x, y]:
                             best_D[x, y, :] = tmp_D
-                            new_f[x, y, :] = offsets[:,i]
+                            new_f[x, y, :] = offsets[:, i]
                     i += 1
                     # offset = w * (alpha ** i)
     #############################################
@@ -201,12 +200,12 @@ def reconstruct_source_from_target(target, f):
     #############################################
 
     g = make_coordinates_matrix(target.shape)
-    g+=f
+    g += f
 
-    rec_source = target[g[:,:,0],g[:,:,1],:]
-    
+    rec_source = target[g[:, :, 0], g[:, :, 1], :]
+
     #############################################
-    
+
     return rec_source
 
 
