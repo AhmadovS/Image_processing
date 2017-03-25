@@ -13,7 +13,6 @@
 
 # import basic packages
 import numpy as np
-import time
 
 # basic numpy configuration
 
@@ -82,7 +81,7 @@ def propagation_and_random_search(source_patches, target_patches,
     ###  PLACE YOUR CODE BETWEEN THESE LINES  ###
     #############################################
     shp = source_patches.shape
-    t = 0
+
     if best_D is None:
         best_D = np.zeros((shp[0], shp[1], 1)) * np.float('inf')
 
@@ -123,6 +122,7 @@ def propagation_and_random_search(source_patches, target_patches,
                     # trgt_patch[np.isnan(trgt_patch)] = 0
                     patch_dist = (trgt_patch - src_patch) ** 2
                     n_nan = len(patch_dist[~np.isnan(patch_dist)])
+
                     patch_dist[np.isnan(patch_dist)] = 0
                     res.append(np.sqrt(np.sum(patch_dist) / n_nan))
 
@@ -136,7 +136,7 @@ def propagation_and_random_search(source_patches, target_patches,
 
                 i = 0
                 # offset = w
-                max_iters = np.int(-np.log(w) / np.log(alpha))
+                max_iters = np.int(-np.log(w) / np.log(alpha))+1
 
                 old_v = new_f[x, y, :]
 
@@ -148,7 +148,7 @@ def propagation_and_random_search(source_patches, target_patches,
                 offsets = old_v + np.asarray(offsets).astype(int)
 
                 targets = offsets +  [x,y]
-                start =time.time()
+
                 x_bound = (abs(targets[:,0]) >=shp[0])
                 y_bound = (abs(targets[:,1]) >= shp[1])
                 # print ("\n")
@@ -157,46 +157,66 @@ def propagation_and_random_search(source_patches, target_patches,
 
                 # targets[x_bound,0]-= shp[0]*targets[x_bound,0]//shp[0]
                 # targets[y_bound, 1] -= shp[1] * targets[y_bound, 1] // shp[1]
-                end = time.time()
-                t +=end-start
+
+
                 # assert (np.all(offsets[:,0] < 285))
                 #
                 # print (targets)
                 # print ("\n")
                 # #
                 # print (offsets)
-                while i < max_iters:
-                    # u = old_v + np.round(r[:,i] * offset)
-                    # u_x = np.round(old_v[0] + r[0]*offset)
-                    # u_y = np.round(old_v[1] + r[1] * offset)
+                all_targets = target_patches[offsets[:,0]+x, offsets[:,1]+y]
+                res = (all_targets - src_patch)
 
-                    # u_x = int(np.asscalar(u_x))
-                    # u_y = int(np.asscalar(u_y))
-                    # ux = x + int(offsets[0][i])
-                    # uy = y + int(offsets[1][i])
-                    # #
-                    # if abs(ux)>=shp[0]:
-                    # if abs(uy)>=shp[1]:
-                    #     offsets[0][i] -=shp[0]*(ux//shp[0])
-                    #     ux = x + int(offsets[0][i])
-                    #     offsets[1][i] -= shp[1] * (uy // shp[1])
-                    #     uy = y + int(offsets[1][i])
+                res = res.reshape(res.shape[0], res.shape[1]*res.shape[2])
 
-                    # if abs(ux) < shp[0] and abs(uy) <shp[1]:
-                    trgt_patch = target_patches[x + offsets[i,0],y+offsets[i,1], :, :]
-                    patch_dist = (trgt_patch -src_patch)
-                    n_nan = len(patch_dist[~np.isnan(patch_dist)])
-                    patch_dist[np.isnan(patch_dist)] = 0
-                        # trgt_patch[np.isnan(trgt_patch)] = 0
+                nan_index = np.isnan(res)
+                n_nan = (~nan_index)
 
-                    tmp_D = np.sqrt(np.sum(patch_dist ** 2) / n_nan)
-                    if np.isnan(best_D[x, y]) or tmp_D < best_D[x, y]:
-                        best_D[x, y, :] = tmp_D
-                        new_f[x, y, :] = offsets[i,:]
-                    i += 1
+                non_nans = np.sum(n_nan, axis=1)
+
+                res[nan_index] = 0
+
+                result = np.sqrt(np.sum(res**2, axis=1)/non_nans)
+                best_D[x,y,:] = min(result)
+                new_f[x,y,:] = offsets[np.argmin(result),:]
+                #
+                # print(result)
+                # # return
+                # print(non_nans)
+
+                # while i < max_iters:
+                #     # u = old_v + np.round(r[:,i] * offset)
+                #     # u_x = np.round(old_v[0] + r[0]*offset)
+                #     # u_y = np.round(old_v[1] + r[1] * offset)
+                #
+                #     # u_x = int(np.asscalar(u_x))
+                #     # u_y = int(np.asscalar(u_y))
+                #     # ux = x + int(offsets[0][i])
+                #     # uy = y + int(offsets[1][i])
+                #     # #
+                #     # if abs(ux)>=shp[0]:
+                #     # if abs(uy)>=shp[1]:
+                #     #     offsets[0][i] -=shp[0]*(ux//shp[0])
+                #     #     ux = x + int(offsets[0][i])
+                #     #     offsets[1][i] -= shp[1] * (uy // shp[1])
+                #     #     uy = y + int(offsets[1][i])
+                #
+                #     # if abs(ux) < shp[0] and abs(uy) <shp[1]:
+                #     trgt_patch = target_patches[x + offsets[i,0],y+offsets[i,1], :, :]
+                #     patch_dist = (trgt_patch -src_patch)
+                #     n_nan = len(patch_dist[~np.isnan(patch_dist)])
+                #     patch_dist[np.isnan(patch_dist)] = 0
+                #         # trgt_patch[np.isnan(trgt_patch)] = 0
+                #
+                #     tmp_D = np.sqrt(np.sum(patch_dist ** 2) / n_nan)
+                #     if np.isnan(best_D[x, y]) or tmp_D < best_D[x, y]:
+                #         best_D[x, y, :] = tmp_D
+                #         new_f[x, y, :] = offsets[i,:]
+                #     i += 1
                 #     # offset = w * (alpha ** i)
     #############################################
-    print("Total time", t)
+
     return new_f, best_D, global_vars
 
 
