@@ -83,8 +83,7 @@ def propagation_and_random_search(source_patches, target_patches,
     shp = source_patches.shape
 
     if best_D is None:
-        best_D = np.zeros((shp[0], shp[1], 1)) * np.float('inf')
-
+        best_D = np.ones((shp[0], shp[1], 1)) * np.inf
 
     for x in range(shp[0]):
         for y in range(shp[1]):
@@ -96,47 +95,76 @@ def propagation_and_random_search(source_patches, target_patches,
             if not propagation_enabled:
                 ##Odd iterations
                 if odd_iteration:
-                    idxs = [new_f[x, y, :], new_f[x - 1, y, :], new_f[x, y - 1, :]]
+                    idxs = np.vstack((new_f[x, y], new_f[x - 1, y], new_f[x, y - 1]))
                 ##Even iterations
                 else:
-                    idxs = [new_f[x, y, :], ]
+                    idxs = [new_f[x, y]]
                     idxs.append(new_f[x + 1, y, :] if x + 1< shp[0] else new_f[0,y,:])
                     idxs.append(new_f[x, y+1, :] if y + 1 < shp[1] else new_f[x, 0,:])
+                    idxs = np.vstack(idxs)
 
-                res = []
+                # res = []
+                targets = idxs + [x, y]
 
-                ##Troubleshooting and find min
-                for id in idxs:
+                x_bound = (abs(targets[:, 0]) >= shp[0])
+                y_bound = (abs(targets[:, 1]) >= shp[1])
+                # print ("\n")
+                idxs[x_bound, 0] -= shp[0] * targets[x_bound, 0] // shp[0]
+                idxs[y_bound, 1] -= shp[1] * targets[y_bound, 1] // shp[1]
 
-                    if abs(x + id[0]) >= shp[0]:
-                        id[0] -= shp[0]*(x + id[0])//shp[0]
-                    if abs(y + id[1]) >= shp[1]:
-                        # print(id)
-                        id[1] -= shp[1]*(y + id[1])//shp[1]
-                        # print(id)
+                all_targets = target_patches[idxs[:, 0] + x, idxs[:, 1] + y]
+                # print (all_targets)
+                # print("Salam\n")
+                # print (src_patch)
+                res = (all_targets - src_patch)
+                res = res.reshape(res.shape[0], res.shape[1] * res.shape[2])
 
-                    # print('\n')
-                    # print(id)
-                    # print(x, y)
-                    trgt_patch = target_patches[x + id[0], y + id[1], :, :]
-                    # trgt_patch[np.isnan(trgt_patch)] = 0
-                    patch_dist = (trgt_patch - src_patch) ** 2
-                    n_nan = len(patch_dist[~np.isnan(patch_dist)])
+                nan_index = np.isnan(res)
+                n_nan = (~nan_index)
 
-                    patch_dist[np.isnan(patch_dist)] = 0
-                    res.append(np.sqrt(np.sum(patch_dist) / n_nan))
+                non_nans = np.sum(n_nan, axis=1)
 
-                tmp_D = np.min(res)
-                if np.isnan(best_D[x, y]) or tmp_D < best_D[x, y]:
-                    best_D[x, y, :] = tmp_D
+                res[nan_index] = 0
+                result = np.sqrt(np.sum(res ** 2, axis=1) / non_nans)
 
-                new_f[x, y, :] = idxs[np.argmin(res)]
+                tmp_min = min(result)
+
+                if  tmp_min < best_D[x, y, :]:
+                    best_D[x, y, :] = tmp_min
+                    new_f[x, y, :] = idxs[np.argmin(result), :]
+
+                # ##Troubleshooting and find min
+                # for id in idxs:
+                #
+                #     if abs(x + id[0]) >= shp[0]:
+                #         id[0] -= shp[0]*(x + id[0])//shp[0]
+                #     if abs(y + id[1]) >= shp[1]:
+                #         # print(id)
+                #         id[1] -= shp[1]*(y + id[1])//shp[1]
+                #         # print(id)
+                #
+                #     # print('\n')
+                #     # print(id)
+                #     # print(x, y)
+                #     trgt_patch = target_patches[x + id[0], y + id[1], :, :]
+                #     # trgt_patch[np.isnan(trgt_patch)] = 0
+                #     patch_dist = (trgt_patch - src_patch) ** 2
+                #     n_nan = len(patch_dist[~np.isnan(patch_dist)])
+                #
+                #     patch_dist[np.isnan(patch_dist)] = 0
+                #     res.append(np.sqrt(np.sum(patch_dist) / n_nan))
+                #
+                # tmp_D = np.min(res)
+                # if np.isnan(best_D[x, y]) or tmp_D < best_D[x, y]:
+                #     best_D[x, y, :] = tmp_D
+                #
+                # new_f[x, y, :] = idxs[np.argmin(res)]
 
             if not random_enabled:
 
-                i = 0
+                # i = 0
                 # offset = w
-                max_iters = np.int(-np.log(w) / np.log(alpha))+1
+                max_iters = np.int(-np.log(w) / np.log(alpha))+2
 
                 old_v = new_f[x, y, :]
 
@@ -145,6 +173,7 @@ def propagation_and_random_search(source_patches, target_patches,
 
                 off_func = lambda i:  r[:,i]*w * (alpha ** i)
                 offsets =  map(off_func, range(max_iters))
+
                 offsets = old_v + np.asarray(offsets).astype(int)
 
                 targets = offsets +  [x,y]
@@ -178,8 +207,10 @@ def propagation_and_random_search(source_patches, target_patches,
                 res[nan_index] = 0
 
                 result = np.sqrt(np.sum(res**2, axis=1)/non_nans)
-                best_D[x,y,:] = min(result)
-                new_f[x,y,:] = offsets[np.argmin(result),:]
+                tmp_min = min(result)
+                if  tmp_min < best_D[x,y,:]:
+                    best_D[x,y,:] = tmp_min
+                    new_f[x,y,:] = offsets[np.argmin(result),:]
                 #
                 # print(result)
                 # # return
