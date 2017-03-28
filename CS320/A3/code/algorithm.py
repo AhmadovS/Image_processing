@@ -82,64 +82,70 @@ def propagation_and_random_search(source_patches, target_patches,
     #############################################
     shp = source_patches.shape
 
+    ## If it is first iteration initilaize Best_D to be inf in all points
     if best_D is None:
         best_D = np.ones((shp[0], shp[1], 1)) * np.inf
 
     for x in range(shp[0]):
         for y in range(shp[1]):
+
+            ## patch with all color intensities for x,y
             src_patch = source_patches[x, y, :, :]
-            # n_nan = len(src_patch[~np.isnan(src_patch)])
-            # src_patch[np.isnan(src_patch)] = 0
 
             ##Propation
             if not propagation_enabled:
                 ##Odd iterations
                 if odd_iteration:
                     idxs = [new_f[x, y]]
+                    ## Boundary check
                     if x != 0:
                         idxs.append(new_f[x - 1, y])
                     if y != 0:
                         idxs.append(new_f[x, y-1])
-
                     idxs = np.vstack(idxs)
+
                 ##Even iterations
                 else:
                     idxs = [new_f[x, y]]
+                    ## Boundary check
                     if x!=shp[0]-1:
                         idxs.append(new_f[x+1, y, :])
                     if y!=shp[1]-1:
                         idxs.append(new_f[x, y+1, :])
-                    # idxs.append(new_f[x + 1, y, :] if x + 1< shp[0] else new_f[0,y,:])
-                    # idxs.append(new_f[x, y+1, :] if y + 1 < shp[1] else new_f[x, 0,:])
                     idxs = np.vstack(idxs)
 
-                # res = []
+                ## Calculate targets indices
                 targets = idxs + [x, y]
 
+                ## Find all invalid indices
                 x_bound = (abs(targets[:, 0]) >= shp[0])
                 y_bound = (abs(targets[:, 1]) >= shp[1])
-                # print ("\n")
+
+                ## Clamp the invalid indices into bound
                 idxs[x_bound, 0] -= shp[0] * targets[x_bound, 0] // shp[0]
                 idxs[y_bound, 1] -= shp[1] * targets[y_bound, 1] // shp[1]
 
+                ## Get target patches
                 all_targets = target_patches[idxs[:, 0] + x, idxs[:, 1] + y]
-                # all_targets = np.rollaxis(all_targets,2,1)
-                # print (all_targets)
-                # print("Salam\n")
-                # print (src_patch)
-                res = (all_targets - src_patch)
-                res = res.reshape(res.shape[0], res.shape[1] * res.shape[2])
 
+                ## Find difference between target patches and source patch
+                res = (all_targets - src_patch)
+                ## Reshape it to make calculation easier
+                res = res.reshape(res.shape[0], res.shape[1] * res.shape[2])
+                ## Find the all NaNs in results
                 nan_index = np.isnan(res)
+                ## Boolean array contains True for each non-NaN entry
                 n_nan = (~nan_index)
 
+                ## Find the number of valid entries for each patch
                 non_nans = np.sum(n_nan, axis=1)
 
                 res[nan_index] = 0
+                ## Calculate the similarity. Use RMS
                 result = np.sqrt(np.sum(res ** 2, axis=1) / non_nans)
-
+                ## Find the most simirlar patch
                 tmp_min = min(result)
-
+                ## If better patch found update the offsets and best_D
                 if  tmp_min < best_D[x, y, :]:
                     best_D[x, y, :] = tmp_min
                     new_f[x, y, :] = idxs[np.argmin(result), :]
@@ -147,92 +153,55 @@ def propagation_and_random_search(source_patches, target_patches,
 
             if not random_enabled:
 
-                # i = 0
-                # offset = w
-                max_iters = np.int(-np.log(w) / np.log(alpha))+2
+                ## Calculate the number of iterations
+                ## w*alpha^i <=1 => log (w*alpha^i) <= 0 (log1)
+                ## log w + i*log alpha <= 1
+                ## i <= -log w/ log alpha
+                max_iters = np.int(-np.log(w) / np.log(alpha))+1
 
+                ## Get the old offsets
                 old_v = new_f[x, y, :]
 
-                #r = np.random.choice([-1, 1], size=(2, max_iters))
-                r = np.random.uniform(low=-1,high= 1, size=(2, max_iters))
+                ## Generate R for each
+                r = np.random.uniform(low=-1,high= 1, size=(2, max_iters+1))
 
+                ## Calculate the offsets
                 off_func = lambda i:  r[:,i]*w * (alpha ** i)
-                offsets =  map(off_func, range(max_iters))
-
+                offsets =  map(off_func, range(max_iters+1))
                 offsets = old_v + np.asarray(offsets).astype(int)
 
+                ## Calculate the indices of all target patches
                 targets = offsets +  [x,y]
 
+                ## Find invalid indices and clamp them into the bounds
                 x_bound = (abs(targets[:,0]) >=shp[0])
                 y_bound = (abs(targets[:,1]) >= shp[1])
-                # print ("\n")
+
                 offsets[x_bound, 0] -= shp[0] * targets[x_bound, 0] // shp[0]
                 offsets[y_bound, 1] -= shp[1] * targets[y_bound, 1] // shp[1]
 
-                # targets[x_bound,0]-= shp[0]*targets[x_bound,0]//shp[0]
-                # targets[y_bound, 1] -= shp[1] * targets[y_bound, 1] // shp[1]
-
-
-                # assert (np.all(offsets[:,0] < 285))
-                #
-                # print (targets)
-                # print ("\n")
-                # #
-                # print (offsets)
+                ## Get all target patches
                 all_targets = target_patches[offsets[:,0]+x, offsets[:,1]+y]
-                # all_targets = np.rollaxis(all_targets, 2, 1)
-
+                ## Calculate the difference between targets and source patch
                 res = (all_targets - src_patch)
-
+                ## Reshape it to make calculation easier0
                 res = res.reshape(res.shape[0], res.shape[1]*res.shape[2])
-
+                ## Find indices of NaNs
                 nan_index = np.isnan(res)
+                ## The boolean matrix where it is True for each non-NaN
                 n_nan = (~nan_index)
-
+                ## Find the number of valid entries for each patch
                 non_nans = np.sum(n_nan, axis=1)
 
+                ## Calculate the similarity between target patches and source patch
                 res[nan_index] = 0
-
                 result = np.sqrt(np.sum(res**2, axis=1)/non_nans)
+                ## Find the most similar patch
                 tmp_min = min(result)
+                ## If better patch found update the best_D and offsets
                 if  tmp_min < best_D[x,y,:]:
                     best_D[x,y,:] = tmp_min
                     new_f[x,y,:] = offsets[np.argmin(result),:]
-                #
-                # print(result)
-                # # return
-                # print(non_nans)
-
-                # while i < max_iters:
-                #     # u = old_v + np.round(r[:,i] * offset)
-                #     # u_x = np.round(old_v[0] + r[0]*offset)
-                #     # u_y = np.round(old_v[1] + r[1] * offset)
-                #
-                #     # u_x = int(np.asscalar(u_x))
-                #     # u_y = int(np.asscalar(u_y))
-                #     # ux = x + int(offsets[0][i])
-                #     # uy = y + int(offsets[1][i])
-                #     # #
-                #     # if abs(ux)>=shp[0]:
-                #     # if abs(uy)>=shp[1]:
-                #     #     offsets[0][i] -=shp[0]*(ux//shp[0])
-                #     #     ux = x + int(offsets[0][i])
-                #     #     offsets[1][i] -= shp[1] * (uy // shp[1])
-                #     #     uy = y + int(offsets[1][i])
-                #
-                #     # if abs(ux) < shp[0] and abs(uy) <shp[1]:
-                #     trgt_patch = target_patches[x + offsets[i,0],y+offsets[i,1], :, :]
-                #     patch_dist = (trgt_patch -src_patch)
-                #     n_nan = len(patch_dist[~np.isnan(patch_dist)])
-                #     patch_dist[np.isnan(patch_dist)] = 0
-                #         # trgt_patch[np.isnan(trgt_patch)] = 0
-                #
-                #     tmp_D = np.sqrt(np.sum(patch_dist ** 2) / n_nan)
-                #     if np.isnan(best_D[x, y]) or tmp_D < best_D[x, y]:
-                #         best_D[x, y, :] = tmp_D
-                #         new_f[x, y, :] = offsets[i,:]
-                #     i += 1
-                #     # offset = w * (alpha ** i)
     #############################################
 
     return new_f, best_D, global_vars
