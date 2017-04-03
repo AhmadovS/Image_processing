@@ -234,9 +234,11 @@ def reconstruct_source_from_target(target, f):
     ###  PLACE YOUR CODE BETWEEN THESE LINES  ###
     #############################################
 
+    ## Get the coordinates
     g = make_coordinates_matrix(target.shape)
+    ## Add offsets to coordinates
     g += f
-
+    ## Get the source
     rec_source = target[g[:, :, 0], g[:, :, 1], :]
 
     #############################################
