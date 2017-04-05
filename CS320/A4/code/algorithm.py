@@ -259,13 +259,38 @@ def propagation_and_random_search_k(source_patches, target_patches,
 
 def NNF_matrix_to_NNF_heap(source_patches, target_patches, f_k):
 
-    f_heap = None
-    f_coord_dictionary = None
+    shp = f_k.shape
+
+    f_heap = np.zeros((shp[1],shp[2]))
+    f_coord_dictionary = np.zeros((shp[1],shp[2]))
 
     #############################################
     ###  PLACE YOUR CODE BETWEEN THESE LINES  ###
     #############################################
 
+    for x in range(shp[1]):
+        for y in range(shp[2]):
+            ## patch with all color intensities for x,y
+            src_patch = source_patches[x, y, :, :]
+
+            disp = f_k[:,x,y,:]
+            h =[]
+            dct = {}
+            for i in range(disp.shape[0]):
+                dx, dy = disp[i,:]
+                if x + dx >= shp[1] or y+dy>=shp[2]:
+                    heappush(h,(float('-inf'), i, disp[i,:]))
+
+                else:
+                    trgt_ptch = target_patches[x+dx,y+dy,:,:]
+                    res = (trgt_ptch - src_patch)**2
+                    n_nan = res[~np.isnan(res)]
+                    sim = np.sqrt(np.mean(n_nan))
+                    heappush(h, (sim, i, disp[i, :]))
+                dct[disp[i,:]] = 0
+
+            f_heap[x,y] = h
+            f_coord_dictionary = dct
 
     #############################################
 
@@ -292,7 +317,17 @@ def NNF_heap_to_NNF_matrix(f_heap):
     #############################################
     ###  PLACE YOUR CODE BETWEEN THESE LINES  ###
     #############################################
+    k = len(f_heap[0,0])
+    shp = f_heap.shape
+    D_k = np.zeros((k,shp[0],shp[1]))
+    f_k = np.zeros((k, shp[0], shp[1],2))
 
+    for x in range(shp[0]):
+        for y in range(shp[1]):
+            arr = np.asarray(f_heap[x,y])
+
+            f_k[:,x,y,:] = arr[:,2]
+            D_k[:,x,y] = arr[:,0]
 
     #############################################
 
