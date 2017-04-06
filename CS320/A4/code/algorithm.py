@@ -14,7 +14,7 @@
 # import basic packages
 import numpy as np
 # import the heapq package
-from heapq import heappush, heappushpop, nlargest
+from heapq import heappush, heappushpop, nlargest, heappop
 # see below for a brief comment on the use of tiebreakers in python heaps
 from itertools import count
 _tiebreaker = count()
@@ -99,7 +99,8 @@ def propagation_and_random_search_k(source_patches, target_patches,
     # ## If it is first iteration initilaize Best_D to be inf in all points
     # if best_D is None:
     #     best_D = np.ones((shp[0], shp[1], 1)) * np.inf
-    tpl_len = len(f_heap[0, 0])
+    # print(f_heap[0][0])
+    tpl_len = len(f_heap[0][0])
 
     for x in range(shp[0]):
         for y in range(shp[1]):
@@ -108,17 +109,17 @@ def propagation_and_random_search_k(source_patches, target_patches,
             src_patch = source_patches[x, y, :, :]
 
             ##Propation
-            if not propagation_enabled:
+            if propagation_enabled:
 
                 ##Odd iterations
                 for k in range(tpl_len):
-                    o = f_heap[x, y][k][2]
-                    idxs =[]
+                    o = f_heap[x][y][k][2]
+                    idxs =[o]
                     if odd_iteration:
                         ## Boundary check
                         if o[0] != 0:
                             idxs.append((o[0]-1,o[1]))
-                        if y != 0:
+                        if o[1] != 0:
                             idxs.append((o[0], o[1]-1))
                         idxs = np.vstack(idxs)
 
@@ -162,12 +163,17 @@ def propagation_and_random_search_k(source_patches, target_patches,
                     result = np.sqrt(np.sum(res ** 2, axis=1) / non_nans)
                     ## Find the most simirlar patch
                     tmp_min = min(result)
+                    tmp_disp = idxs[np.argmin((result))]
                     ## If better patch found update the offsets and best_D
+                    # print(idxs,tmp_min)
+                    smallest = f_heap[x][y][0]
+                    if tmp_min <= abs(smallest[0]):
+                        # print(smallest)
+                        # print(f_heap[x][y])
+                        heappop(f_heap[x][y])
+                        heappush(f_heap[x][y], (-tmp_min,smallest[1] ,tmp_disp))
 
-                    f_heap[x,y].heappushpop(-tmp_min)
-
-
-            if not random_enabled:
+            if random_enabled:
 
                 ## Calculate the number of iterations
                 ## w*alpha^i <=1 => log (w*alpha^i) <= 0 (log1)
@@ -175,9 +181,9 @@ def propagation_and_random_search_k(source_patches, target_patches,
                 ## i <= -log w/ log alpha
                 max_iters = np.int(-np.log(w) / np.log(alpha))+1
                 for k in range(tpl_len):
-                    old_v = f_heap[x, y][k][2]
-
-                    ## Generate R for each
+                    old_v = f_heap[x][y][k][2]
+                    # print(old_v)
+                        ## Generate R for each
                     r = np.random.uniform(low=-1,high= 1, size=(2, max_iters+1))
 
                     ## Calculate the offsets
@@ -213,8 +219,15 @@ def propagation_and_random_search_k(source_patches, target_patches,
                     result = np.sqrt(np.sum(res**2, axis=1)/non_nans)
                     ## Find the most similar patch
                     tmp_min = min(result)
-                    ## If better patch found update the best_D and offsets
-                    f_heap[x,y].heappushpop(-tmp_min)
+                    tmp_disp = offsets[np.argmin((result))]
+                    ## If better patch found update the offsets and best_D
+                    # print(idxs,tmp_min)
+                    smallest = f_heap[x][y][0]
+                    if tmp_min <= abs(smallest[0]):
+                        heappop(f_heap[x][y])
+                        heappush(f_heap[x][y], (-tmp_min, smallest[1], tmp_disp))
+                    # ## If better patch found update the best_D and offsets
+                    # f_heap[x,y].heappushpop(-tmp_min)
 
     #############################################
 
@@ -260,8 +273,7 @@ def propagation_and_random_search_k(source_patches, target_patches,
 def NNF_matrix_to_NNF_heap(source_patches, target_patches, f_k):
 
     shp = f_k.shape
-
-    f_heap = np.zeros((shp[1],shp[2]))
+    f_heap = []
     f_coord_dictionary = np.zeros((shp[1],shp[2]))
 
     #############################################
@@ -269,6 +281,7 @@ def NNF_matrix_to_NNF_heap(source_patches, target_patches, f_k):
     #############################################
 
     for x in range(shp[1]):
+        f_heap.append([])
         for y in range(shp[2]):
             ## patch with all color intensities for x,y
             src_patch = source_patches[x, y, :, :]
@@ -287,11 +300,14 @@ def NNF_matrix_to_NNF_heap(source_patches, target_patches, f_k):
                     n_nan = res[~np.isnan(res)]
                     sim = -np.sqrt(np.mean(n_nan))
                     heappush(h, (sim, i, disp[i, :]))
-                dct[disp[i,:]] = 0
 
-            f_heap[x,y] = h
+                dct[tuple(disp[i,:])] = 0
+            # print(np.asarray(h[0]))
+            # print(dct)
+            f_heap[x].append(h)
             f_coord_dictionary = dct
-
+    # print(f_k[:,0,0,:])
+    # print(len(f_heap), len(f_heap[0]), f_heap[0][0])
     #############################################
 
     return f_heap, f_coord_dictionary
@@ -317,17 +333,19 @@ def NNF_heap_to_NNF_matrix(f_heap):
     #############################################
     ###  PLACE YOUR CODE BETWEEN THESE LINES  ###
     #############################################
-    k = len(f_heap[0,0])
-    shp = f_heap.shape
+    k = len(f_heap[0][0])
+    # print(k)
+    shp = [len(f_heap), len(f_heap[0])]
+
     D_k = np.zeros((k,shp[0],shp[1]))
     f_k = np.zeros((k, shp[0], shp[1],2))
 
     for x in range(shp[0]):
         for y in range(shp[1]):
-            arr = np.asarray(f_heap[x,y])
-
-            f_k[:,x,y,:] = arr[:,2]
-            D_k[:,x,y] = arr[:,0]
+            arr = f_heap[x][y]
+            for dk in range(len(arr)-1,-1,-1):
+                f_k[dk,x,y,:] = arr[dk][2]
+                D_k[:,x,y] = abs(arr[dk][0])
 
     #############################################
 
@@ -384,7 +402,7 @@ def nlm(target, f_heap, h):
 # as this would be very inefficient
 
 def reconstruct_source_from_target(target, f):
-    rec_source = None
+
 
     ################################################
     ###  PLACE YOUR A3 CODE BETWEEN THESE LINES  ###
@@ -393,6 +411,8 @@ def reconstruct_source_from_target(target, f):
     ## Get the coordinates
     g = make_coordinates_matrix(target.shape)
     ## Add offsets to coordinates
+    g = g.astype(int)
+    f = f.astype(int)
     g += f
     ## Get the source
     rec_source = target[g[:, :, 0], g[:, :, 1], :]
