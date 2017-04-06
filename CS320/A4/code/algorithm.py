@@ -89,16 +89,16 @@ def propagation_and_random_search_k(source_patches, target_patches,
                                     global_vars
                                     ):
 
-    new_f = f.copy()
+    # new_f = f.copy()
 
     #############################################
     ###  PLACE YOUR CODE BETWEEN THESE LINES  ###
     #############################################
     shp = source_patches.shape
 
-    ## If it is first iteration initilaize Best_D to be inf in all points
-    if best_D is None:
-        best_D = np.ones((shp[0], shp[1], 1)) * np.inf
+    # ## If it is first iteration initilaize Best_D to be inf in all points
+    # if best_D is None:
+    #     best_D = np.ones((shp[0], shp[1], 1)) * np.inf
 
     for x in range(shp[0]):
         for y in range(shp[1]):
@@ -109,8 +109,8 @@ def propagation_and_random_search_k(source_patches, target_patches,
             ##Propation
             if not propagation_enabled:
                 ##Odd iterations
+                idxs = [new_f[x, y]]
                 if odd_iteration:
-                    idxs = [new_f[x, y]]
                     ## Boundary check
                     if x != 0:
                         idxs.append(new_f[x - 1, y])
@@ -120,7 +120,6 @@ def propagation_and_random_search_k(source_patches, target_patches,
 
                 ##Even iterations
                 else:
-                    idxs = [new_f[x, y]]
                     ## Boundary check
                     if x!=shp[0]-1:
                         idxs.append(new_f[x+1, y, :])
@@ -279,13 +278,13 @@ def NNF_matrix_to_NNF_heap(source_patches, target_patches, f_k):
             for i in range(disp.shape[0]):
                 dx, dy = disp[i,:]
                 if x + dx >= shp[1] or y+dy>=shp[2]:
-                    heappush(h,(float('-inf'), i, disp[i,:]))
+                    heappush(h,(float('inf'), i, disp[i,:]))
 
                 else:
                     trgt_ptch = target_patches[x+dx,y+dy,:,:]
                     res = (trgt_ptch - src_patch)**2
                     n_nan = res[~np.isnan(res)]
-                    sim = np.sqrt(np.mean(n_nan))
+                    sim = -np.sqrt(np.mean(n_nan))
                     heappush(h, (sim, i, disp[i, :]))
                 dct[disp[i,:]] = 0
 
