@@ -168,12 +168,13 @@ def propagation_and_random_search_k(source_patches, target_patches,
                             # print(idxs,tmp_min)
 
                             tmp_tpl = -tmp_min, next(_tiebreaker), tmp_disp
-                            if tmp_min < D[k][x][y]:
-                                D[k][x][y] = tmp_min
+
+                            if tmp_min < D[-1][x][y]:
+                                D[-1][x][y] = tmp_min
                                 if tuple(tmp_disp) not in f_coord_dictionary[x][y]:
                                     heappushpop(f_heap[x][y], tmp_tpl)
                                     # f_coord_dictionary[x][y][tuple(tmp_disp)] = 0
-                                    f[k,x,y] = tmp_disp
+                                    f[-1,x,y] = tmp_disp
                                     # smallest = f_heap[x][y][0]
                                     # if tmp_min <= abs(smallest[0]):
                                     #     # print(smallest)
@@ -187,8 +188,8 @@ def propagation_and_random_search_k(source_patches, target_patches,
                 ## w*alpha^i <=1 => log (w*alpha^i) <= 0 (log1)
                 ## log w + i*log alpha <= 1
                 ## i <= -log w/ log alpha
-                max_iters = np.int(-np.log(w) / np.log(alpha))+1
-                print('\n')
+                max_iters = np.int(-np.log(w) / np.log(alpha))
+                # print('\n')
                 for k in range(tpl_len):
                     old_v = f[k][x][y]
                     # print(old_v)
@@ -199,7 +200,7 @@ def propagation_and_random_search_k(source_patches, target_patches,
                     ## Calculate the offsets
                     off_func = lambda i:  r[:,i]*w * (alpha ** i)
                     offsets =  map(off_func, range(max_iters+1))
-                    offsets = old_v + offsets
+                    offsets =  offsets +old_v
                     offsets = np.asarray(offsets).astype(int)
                     ## Calculate the indices of all target patches
                     targets = offsets +  [x,y]
@@ -229,15 +230,15 @@ def propagation_and_random_search_k(source_patches, target_patches,
                             ## If better patch found update the offsets and best_D
                             # print(idxs,tmp_min)
                             tmp_tpl = -tmp_min, next(_tiebreaker), tmp_disp
-                            if tmp_min < D[k][x][y]:
-                                D[k][x][y] = tmp_min
+                            if tmp_min < D[-1][x][y]:
+                                D[-1][x][y] = tmp_min
                                 if tuple(tmp_disp) not in f_coord_dictionary[x][y]:
                                     # print(f_coord_dictionary)
                                     # print(f_heap[x][y])
                                     # print(tmp_tpl)
                                     # print(f_coord_dictionary[x][y])
                                     # print(tmp_disp)
-                                    f[k, x, y] = tmp_disp
+                                    f[-1, x, y] = tmp_disp
 
                                     heappushpop(f_heap[x][y], tmp_tpl)
                                     # f_coord_dictionary[x][y][tuple(tmp_disp)] = 0
