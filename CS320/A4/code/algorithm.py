@@ -379,7 +379,7 @@ def NNF_heap_to_NNF_matrix(f_heap):
             #     # print(abs(arr[dk][0]))
             # print('\n')
     #############################################
-
+    f_k = f_k.astype(int)
     return f_k, D_k
 
 
@@ -387,13 +387,32 @@ def nlm(target, f_heap, h):
 
 
     # this is a dummy statement to return the image given as input
-    denoised = copy(target)
-
-    
     #############################################
     ###  PLACE YOUR CODE BETWEEN THESE LINES  ###
     #############################################
 
+    denoised = np.zeros(target.shape)
+    g = make_coordinates_matrix(target.shape)
+
+    f, D = NNF_heap_to_NNF_matrix(f_heap)
+
+    w = np.exp(-1*np.power(D,2)/h**2)
+
+    weights = w/np.sum(w, axis=0)
+    # print(np.sum(weights, axis=0))
+    for i in range(f.shape[0]):
+        targets = target[g[:,:,0]+f[i,:,:,0],g[:,:,1]+f[i,:,:,1],:]
+
+        denoised+= targets*weights[i,:,:, np.newaxis]
+    # print(weights.shape)
+    # weights = np.repeat(weights, 3)
+    # print(weights.shape)
+    # print(f.shape)
+    #
+    # all_patches = target[f[:,:,:,0],f[:,:,:,1],:]
+    # print(all_patches.shape)
+    # denoised = np.einsum('ijk,ijkl->jkl', weights, all_patches)
+    # print(denoised).shape
 
     #############################################
 
