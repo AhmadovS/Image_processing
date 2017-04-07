@@ -117,19 +117,19 @@ def propagation_and_random_search_k(source_patches, target_patches,
                     idxs =[o]
                     if odd_iteration:
                         ## Boundary check
-                        if o[0] != 0:
-                            idxs.append((o[0]-1,o[1]))
-                        if o[1] != 0:
-                            idxs.append((o[0], o[1]-1))
+                        if x != 0:
+                            idxs.append(f_heap[x-1][y][k][2])
+                        if y != 0:
+                            idxs.append(f_heap[x][y-1][k][2])
                         idxs = np.vstack(idxs)
 
                     ##Even iterations
                     else:
                         ## Boundary check
-                        if o[0] != 0:
-                            idxs.append((o[0]+1,o[1]))
-                        if y != 0:
-                            idxs.append((o[0], o[1]+1))
+                        if x < shp[0]-1:
+                            idxs.append(f_heap[x+1][y][k][2])
+                        if y < shp[1] -1 :
+                            idxs.append(f_heap[x][y+1][k][2])
                         idxs = np.vstack(idxs)
 
                     ## Calculate targets indices
@@ -166,12 +166,16 @@ def propagation_and_random_search_k(source_patches, target_patches,
                     tmp_disp = idxs[np.argmin((result))]
                     ## If better patch found update the offsets and best_D
                     # print(idxs,tmp_min)
-                    smallest = f_heap[x][y][0]
-                    if tmp_min <= abs(smallest[0]):
-                        # print(smallest)
-                        # print(f_heap[x][y])
-                        heappop(f_heap[x][y])
-                        heappush(f_heap[x][y], (-tmp_min,smallest[1] ,tmp_disp))
+                    tmp_tpl = -tmp_min, next(_tiebreaker), tmp_disp
+                    if tuple(tmp_disp) not in f_coord_dictionary[x][y]:
+                        heappushpop(f_heap[x][y], tmp_tpl)
+                        f_coord_dictionary[x][y][tuple(tmp_disp)] = 0
+                        # smallest = f_heap[x][y][0]
+                        # if tmp_min <= abs(smallest[0]):
+                        #     # print(smallest)
+                        #     # print(f_heap[x][y])
+                        #     heappop(f_heap[x][y])
+                        #     heappush(f_heap[x][y], (-tmp_min,smallest[1] ,tmp_disp))
 
             if random_enabled:
 
@@ -222,12 +226,22 @@ def propagation_and_random_search_k(source_patches, target_patches,
                     tmp_disp = offsets[np.argmin((result))]
                     ## If better patch found update the offsets and best_D
                     # print(idxs,tmp_min)
-                    smallest = f_heap[x][y][0]
-                    if tmp_min <= abs(smallest[0]):
-                        heappop(f_heap[x][y])
-                        heappush(f_heap[x][y], (-tmp_min, smallest[1], tmp_disp))
-                    # ## If better patch found update the best_D and offsets
-                    # f_heap[x,y].heappushpop(-tmp_min)
+                    tmp_tpl = -tmp_min, next(_tiebreaker), tmp_disp
+                    if tuple(tmp_disp) not in f_coord_dictionary[x][y]:
+                        # print(f_coord_dictionary)
+                        # print(f_heap[x][y])
+                        # print(tmp_tpl)
+                        # print(f_coord_dictionary[x][y])
+                        # print(tmp_disp)
+                        heappushpop(f_heap[x][y], tmp_tpl)
+                        f_coord_dictionary[x][y][tuple(tmp_disp)] = 0
+
+                        # smallest = f_heap[x][y][0]
+                        # if tmp_min <= abs(smallest[0]):
+                        #     heappop(f_heap[x][y])
+                        #     heappush(f_heap[x][y], (-tmp_min, smallest[1], tmp_disp))
+                        # # ## If better patch found update the best_D and offsets
+                        # f_heap[x,y].heappushpop(-tmp_min)
 
     #############################################
 
@@ -274,7 +288,7 @@ def NNF_matrix_to_NNF_heap(source_patches, target_patches, f_k):
 
     shp = f_k.shape
     f_heap = []
-    f_coord_dictionary = np.zeros((shp[1],shp[2]))
+    f_coord_dictionary = []
 
     #############################################
     ###  PLACE YOUR CODE BETWEEN THESE LINES  ###
@@ -282,6 +296,7 @@ def NNF_matrix_to_NNF_heap(source_patches, target_patches, f_k):
 
     for x in range(shp[1]):
         f_heap.append([])
+        f_coord_dictionary.append([])
         for y in range(shp[2]):
             ## patch with all color intensities for x,y
             src_patch = source_patches[x, y, :, :]
@@ -292,20 +307,22 @@ def NNF_matrix_to_NNF_heap(source_patches, target_patches, f_k):
             for i in range(disp.shape[0]):
                 dx, dy = disp[i,:]
                 if x + dx >= shp[1] or y+dy>=shp[2]:
-                    heappush(h,(float('-inf'), i, disp[i,:]))
+                    tpl = float('-inf'), next(_tiebreaker), disp[i,:]
+                    heappush(h,tpl)
 
                 else:
                     trgt_ptch = target_patches[x+dx,y+dy,:,:]
                     res = (trgt_ptch - src_patch)**2
                     n_nan = res[~np.isnan(res)]
                     sim = -np.sqrt(np.mean(n_nan))
-                    heappush(h, (sim, i, disp[i, :]))
+                    tpl = sim, next(_tiebreaker), disp[i, :]
+                    heappush(h, tpl)
 
                 dct[tuple(disp[i,:])] = 0
             # print(np.asarray(h[0]))
             # print(dct)
             f_heap[x].append(h)
-            f_coord_dictionary = dct
+            f_coord_dictionary[x].append(dct)
     # print(f_k[:,0,0,:])
     # print(len(f_heap), len(f_heap[0]), f_heap[0][0])
     #############################################
@@ -346,7 +363,8 @@ def NNF_heap_to_NNF_matrix(f_heap):
             for dk in range(len(arr)-1,-1,-1):
                 f_k[dk,x,y,:] = arr[dk][2]
                 D_k[:,x,y] = abs(arr[dk][0])
-
+                # print(abs(arr[dk][0]))
+            # print('\n')
     #############################################
 
     return f_k, D_k
