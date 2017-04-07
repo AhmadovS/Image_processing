@@ -169,12 +169,12 @@ def propagation_and_random_search_k(source_patches, target_patches,
 
                             tmp_tpl = -tmp_min, next(_tiebreaker), tmp_disp
 
-                            if tmp_min < D[-1][x][y]:
-                                D[-1][x][y] = tmp_min
+                            if tmp_min < D[k,x,y]:
                                 if tuple(tmp_disp) not in f_coord_dictionary[x][y]:
+                                    D[k,x,y] = tmp_min
                                     heappushpop(f_heap[x][y], tmp_tpl)
-                                    # f_coord_dictionary[x][y][tuple(tmp_disp)] = 0
-                                    f[-1,x,y] = tmp_disp
+                                    f_coord_dictionary[x][y][tuple(tmp_disp)] = 0
+                                    f[k,x,y] = tmp_disp
                                     # smallest = f_heap[x][y][0]
                                     # if tmp_min <= abs(smallest[0]):
                                     #     # print(smallest)
@@ -230,18 +230,18 @@ def propagation_and_random_search_k(source_patches, target_patches,
                             ## If better patch found update the offsets and best_D
                             # print(idxs,tmp_min)
                             tmp_tpl = -tmp_min, next(_tiebreaker), tmp_disp
-                            if tmp_min < D[-1][x][y]:
-                                D[-1][x][y] = tmp_min
+                            if tmp_min < D[k,x,y]:
                                 if tuple(tmp_disp) not in f_coord_dictionary[x][y]:
                                     # print(f_coord_dictionary)
                                     # print(f_heap[x][y])
                                     # print(tmp_tpl)
                                     # print(f_coord_dictionary[x][y])
                                     # print(tmp_disp)
-                                    f[-1, x, y] = tmp_disp
 
                                     heappushpop(f_heap[x][y], tmp_tpl)
-                                    # f_coord_dictionary[x][y][tuple(tmp_disp)] = 0
+                                    D[k,x,y] = tmp_min
+                                    f[k, x, y] = tmp_disp
+                                    f_coord_dictionary[x][y][tuple(tmp_disp)] = 0
 
                                     # smallest = f_heap[x][y][0]
                                     # if tmp_min <= abs(smallest[0]):
@@ -249,7 +249,8 @@ def propagation_and_random_search_k(source_patches, target_patches,
                                     #     heappush(f_heap[x][y], (-tmp_min, smallest[1], tmp_disp))
                                     # # ## If better patch found update the best_D and offsets
                                     # f_heap[x,y].heappushpop(-tmp_min)
-
+    # print(f_heap)
+    # print(f_coord_dictionary)
     #############################################
 
     return global_vars
@@ -325,11 +326,12 @@ def NNF_matrix_to_NNF_heap(source_patches, target_patches, f_k):
                     tpl = sim, next(_tiebreaker), disp[i, :]
                     heappush(h, tpl)
 
-                dct[tuple(disp[i,:])] = 0
+                dct[tuple([dx,dy])] = 0
             # print(np.asarray(h[0]))
             # print(dct)
             f_heap[x].append(h)
             f_coord_dictionary[x].append(dct)
+            # print(f_coord_dictionary)
     # print(f_k[:,0,0,:])
     # print(len(f_heap), len(f_heap[0]), f_heap[0][0])
     #############################################
@@ -385,8 +387,9 @@ def nlm(target, f_heap, h):
 
 
     # this is a dummy statement to return the image given as input
-    #denoised = target
+    denoised = copy(target)
 
+    
     #############################################
     ###  PLACE YOUR CODE BETWEEN THESE LINES  ###
     #############################################
