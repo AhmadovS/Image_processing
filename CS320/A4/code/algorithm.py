@@ -89,18 +89,15 @@ def propagation_and_random_search_k(source_patches, target_patches,
                                     global_vars
                                     ):
 
-    # new_f = f.copy()
-
     #############################################
     ###  PLACE YOUR CODE BETWEEN THESE LINES  ###
     #############################################
+
     shp = source_patches.shape
+    ## Get nnf displacements and distances
     f, D = NNF_heap_to_NNF_matrix(f_heap)
 
-    # ## If it is first iteration initilaize Best_D to be inf in all points
-    # if best_D is None:
-    #     best_D = np.ones((shp[0], shp[1], 1)) * np.inf
-    # print(f_heap[0][0])
+    ## Find k (number of nnf displacements per point)
     tpl_len = len(f_heap[0][0])
 
     for x in range(shp[0]):
@@ -113,6 +110,8 @@ def propagation_and_random_search_k(source_patches, target_patches,
             if propagation_enabled:
 
                 ##Odd iterations
+                ## Calculate for each neighbor
+
                 for k in range(tpl_len):
                     o = f[k][x][y]
                     idxs =[o]
@@ -132,56 +131,41 @@ def propagation_and_random_search_k(source_patches, target_patches,
                         if y < shp[1] -1 :
                             idxs.append(f[k][x][y+1])
                         idxs = np.vstack(idxs)
+
                     idxs = idxs.astype(int)
+
                     ## Calculate targets indices
                     targets = idxs + [x, y]
-                    ## Find all invalid indices
-                    # x_bound = (abs(targets[:, 0]) >= shp[0])
-                    # y_bound = (abs(targets[:, 1]) >= shp[1])
-                    #
-                    # ## Clamp the invalid indices into bound
-                    # idxs[x_bound, 0] -= shp[0] * targets[x_bound, 0] // shp[0]
-                    # idxs[y_bound, 1] -= shp[1] * targets[y_bound, 1] // shp[1]
+
+                    ## ignore target indices those are out of bounds
                     for tar in targets:
                         if 0<=tar[0] < shp[0] and 0<=tar[1] < shp[1]:
+
+                            ## Get the target patch
                             all_targets = target_patches[tar[0], tar[1], :, :]
 
-                            ## Find difference between target patches and source patch
+                            ## Find difference between target patch and source patch
+
                             res = (all_targets - src_patch) ** 2
-                            ## Reshape it to make calculation easier
-                            # res = res.reshape(res.shape[0], res.shape[1] * res.shape[2])
-                            ## Find the all NaNs in results
-                            nan_index = res[~np.isnan(res)]
-                            ## Boolean array contains True for each non-NaN entry
-                            # n_nan = (~nan_index)
 
-                            ## Find the number of valid entries for each patch
-                            # non_nans = np.sum(n_nan, axis=1)
-
-                            # res[nan_index] = 0
-                            ## Calculate the similarity. Use RMS
-                            result = np.sqrt(np.mean(nan_index))
-                            ## Find the most simirlar patch
+                            ## Ignore all the NaN values
+                            non_nans = res[~np.isnan(res)]
+                            ## Calculate the distance
+                            # result = np.sqrt(np.mean(non_nans))
+                            result = np.mean(non_nans)
+                            ## Create new entry for heap
                             tmp_min = result
                             tmp_disp = [tar[0] - x, tar[1] - y]
-                            ## If better patch found update the offsets and best_D
-                            # print(idxs,tmp_min)
-
                             tmp_tpl = -tmp_min, next(_tiebreaker), tmp_disp
-
+                            ## If better match found
                             if tmp_min < D[k,x,y]:
+                                ## And displacment hasnt been added before
                                 if tuple(tmp_disp) not in f_coord_dictionary[x][y]:
+                                    ## Update the values
                                     D[k,x,y] = tmp_min
                                     heappushpop(f_heap[x][y], tmp_tpl)
                                     f_coord_dictionary[x][y][tuple(tmp_disp)] = 0
                                     f[k,x,y] = tmp_disp
-                                    # smallest = f_heap[x][y][0]
-                                    # if tmp_min <= abs(smallest[0]):
-                                    #     # print(smallest)
-                                    #     # print(f_heap[x][y])
-                                    #     heappop(f_heap[x][y])
-                                    #     heappush(f_heap[x][y], (-tmp_min,smallest[1] ,tmp_disp))
-
             if random_enabled:
 
                 ## Calculate the number of iterations
@@ -189,11 +173,10 @@ def propagation_and_random_search_k(source_patches, target_patches,
                 ## log w + i*log alpha <= 1
                 ## i <= -log w/ log alpha
                 max_iters = np.int(-np.log(w) / np.log(alpha))
-                # print('\n')
+                ## Do calculation for each k
                 for k in range(tpl_len):
+                    ## Old displacement value
                     old_v = f[k][x][y]
-                    # print(old_v)
-                    # print(old_v)
                     ## Generate R for each
                     r = np.random.uniform(low=-1,high= 1, size=(2, max_iters+1))
 
@@ -205,52 +188,33 @@ def propagation_and_random_search_k(source_patches, target_patches,
                     ## Calculate the indices of all target patches
                     targets = offsets +  [x,y]
 
-                    ## Find invalid indices and clamp them into the bounds
+                    ## Ignore the invalid indices
                     for tar in targets:
                         if 0 <= tar[0] < shp[0] and 0 <= tar[1] < shp[1]:
-                            ## Get all target patches
+                            ## Get target patch
                             all_targets = target_patches[tar[0], tar[1],:,:]
-                            ## Calculate the difference between targets and source patch
+                            ## Calculate the difference between target and source patch
                             res = (all_targets - src_patch)**2
-                            ## Reshape it to make calculation easier0
-                            # res = res.reshape(res.shape[0], res.shape[1]*res.shape[2])
-                            ## Find indices of NaNs
-                            nan_index = res[~np.isnan(res)]
-                            ## The boolean matrix where it is True for each non-NaN
-                            # n_nan = (~nan_index)
-                            ## Find the number of valid entries for each patch
-                            # non_nans = np.sum(n_nan, axis=1)
+                            ## Ignore NaNs
+                            non_nans = res[~np.isnan(res)]
 
-                            ## Calculate the similarity between target patches and source patch
-                            # res[nan_index] = 0
-                            result = np.sqrt(np.mean(nan_index))
-                            ## Find the most similar patch
+                            ## Calculate the similarity between target patch and source patch
+                            result = np.mean(non_nans)
+                            # result = np.sqrt(np.mean(non_nans))
+
+                            ## Create a new entry for heap
                             tmp_min = result
                             tmp_disp = [tar[0]-x,tar[1]-y]
-                            ## If better patch found update the offsets and best_D
-                            # print(idxs,tmp_min)
                             tmp_tpl = -tmp_min, next(_tiebreaker), tmp_disp
+
+                            ## If better patch found update the heap
                             if tmp_min < D[k,x,y]:
                                 if tuple(tmp_disp) not in f_coord_dictionary[x][y]:
-                                    # print(f_coord_dictionary)
-                                    # print(f_heap[x][y])
-                                    # print(tmp_tpl)
-                                    # print(f_coord_dictionary[x][y])
-                                    # print(tmp_disp)
 
                                     heappushpop(f_heap[x][y], tmp_tpl)
                                     D[k,x,y] = tmp_min
                                     f[k, x, y] = tmp_disp
                                     f_coord_dictionary[x][y][tuple(tmp_disp)] = 0
-
-                                    # smallest = f_heap[x][y][0]
-                                    # if tmp_min <= abs(smallest[0]):
-                                    #     heappop(f_heap[x][y])
-                                    #     heappush(f_heap[x][y], (-tmp_min, smallest[1], tmp_disp))
-                                    # # ## If better patch found update the best_D and offsets
-                                    # f_heap[x,y].heappushpop(-tmp_min)
-    # print(f_heap)
-    # print(f_coord_dictionary)
     #############################################
 
     return global_vars
@@ -294,6 +258,7 @@ def propagation_and_random_search_k(source_patches, target_patches,
 
 def NNF_matrix_to_NNF_heap(source_patches, target_patches, f_k):
 
+    ## Init the variables
     shp = f_k.shape
     f_heap = []
     f_coord_dictionary = []
@@ -303,37 +268,41 @@ def NNF_matrix_to_NNF_heap(source_patches, target_patches, f_k):
     #############################################
 
     for x in range(shp[1]):
+        ## Add new list for each row
         f_heap.append([])
         f_coord_dictionary.append([])
         for y in range(shp[2]):
+
             ## patch with all color intensities for x,y
             src_patch = source_patches[x, y, :, :]
-
+            ## Displacement value
             disp = f_k[:,x,y,:]
+            ## Heap and dict
             h =[]
             dct = {}
             for i in range(disp.shape[0]):
                 dx, dy = disp[i,:]
+                ## If invalid entry add inf
                 if x + dx >= shp[1] or y+dy>=shp[2]:
                     tpl = float('-inf'), next(_tiebreaker), disp[i,:]
                     heappush(h,tpl)
 
                 else:
+                    ## Else similarity between pacthes
                     trgt_ptch = target_patches[x+dx,y+dy,:,:]
                     res = (trgt_ptch - src_patch)**2
                     n_nan = res[~np.isnan(res)]
-                    sim = -np.sqrt(np.mean(n_nan))
+
+                    # sim = -np.sqrt(np.mean(n_nan))
+                    sim = -np.mean(n_nan)
+
                     tpl = sim, next(_tiebreaker), disp[i, :]
                     heappush(h, tpl)
 
                 dct[tuple([dx,dy])] = 0
-            # print(np.asarray(h[0]))
-            # print(dct)
+
             f_heap[x].append(h)
             f_coord_dictionary[x].append(dct)
-            # print(f_coord_dictionary)
-    # print(f_k[:,0,0,:])
-    # print(len(f_heap), len(f_heap[0]), f_heap[0][0])
     #############################################
 
     return f_heap, f_coord_dictionary
@@ -359,27 +328,27 @@ def NNF_heap_to_NNF_matrix(f_heap):
     #############################################
     ###  PLACE YOUR CODE BETWEEN THESE LINES  ###
     #############################################
+
     k = len(f_heap[0][0])
-    # print(k)
     shp = [len(f_heap), len(f_heap[0])]
 
+    ## Init arrays
     D_k = np.zeros((k,shp[0],shp[1]))
     f_k = np.zeros((k, shp[0], shp[1],2))
 
     for x in range(shp[0]):
         for y in range(shp[1]):
+
+            ## Get the largest values
             arrs = nlargest(k, f_heap[x][y])
             for i in range(len(arrs)):
+                ## Update the values
                 f_k[i,x,y] = arrs[i][2]
                 D_k[i,x,y] = -arrs[i][0]
-            # arr = f_heap[x][y]
-            # for dk in range(len(arr)-1,-1,-1):
-            #     f_k[dk,x,y,:] = arr[dk][2]
-            #     D_k[:,x,y] = abs(arr[dk][0])
-            #     # print(abs(arr[dk][0]))
-            # print('\n')
+
     #############################################
     f_k = f_k.astype(int)
+
     return f_k, D_k
 
 
@@ -391,28 +360,23 @@ def nlm(target, f_heap, h):
     ###  PLACE YOUR CODE BETWEEN THESE LINES  ###
     #############################################
 
+    ## Init denoised
     denoised = np.zeros(target.shape)
-    g = make_coordinates_matrix(target.shape)
 
+    ## Get values to calculate the patch in target
+    g = make_coordinates_matrix(target.shape)
+    ## NNF and similarity vectors
     f, D = NNF_heap_to_NNF_matrix(f_heap)
 
-    w = np.exp(-1*np.power(D,2)/h**2)
-
+    ## Calculate the weights
+    w = np.exp(-1*D/h**2)
+    ## Normalize the weights
     weights = w/np.sum(w, axis=0)
-    # print(np.sum(weights, axis=0))
-    for i in range(f.shape[0]):
-        targets = target[g[:,:,0]+f[i,:,:,0],g[:,:,1]+f[i,:,:,1],:]
 
+    for i in range(f.shape[0]):
+
+        targets = target[g[:,:,0]+f[i,:,:,0],g[:,:,1]+f[i,:,:,1],:]
         denoised+= targets*weights[i,:,:, np.newaxis]
-    # print(weights.shape)
-    # weights = np.repeat(weights, 3)
-    # print(weights.shape)
-    # print(f.shape)
-    #
-    # all_patches = target[f[:,:,:,0],f[:,:,:,1],:]
-    # print(all_patches.shape)
-    # denoised = np.einsum('ijk,ijkl->jkl', weights, all_patches)
-    # print(denoised).shape
 
     #############################################
 
